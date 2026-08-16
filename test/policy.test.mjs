@@ -31,8 +31,9 @@ test("off-peak outside the windows", () => {
 // at each event's own timestamp (peak = 3x input / 9x output / 0.1 cache-hit
 // per 1M tokens for flash; off-peak is half) ----
 
-const PEAK_AT = "2026-08-17T01:00:00Z"; // 09:00 BJ -> peak
-const OFFPEAK_AT = "2026-08-16T17:00:00Z"; // 01:00 BJ -> off-peak
+const PEAK_AT = "2026-08-17T01:00:00Z"; // 09:00 BJ 8/17 -> peak (new price list)
+const OFFPEAK_AT = "2026-08-17T05:00:00Z"; // 13:00 BJ 8/17 -> off-peak (new price list)
+const LEGACY_AT = "2026-08-16T10:00:00Z"; // 18:00 BJ 8/16 -> before the 8/17 policy: flat legacy prices
 
 function runProjection(events) {
   const unit = createPeakCostProjection(config);
@@ -73,6 +74,23 @@ test("peakCost: same usage at off-peak costs half (0.0006 CNY)", () => {
     messageEvent(OFFPEAK_AT, 1, 1, "m1", { inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 })
   ]);
   assert.ok(Math.abs(view.totalCost - 0.0006) < 1e-9);
+});
+
+test("peakCost: usage before 2026-08-17 is priced at flat legacy rates", () => {
+  const { view } = runProjection([
+    headerEvent("deepseek-official", "deepseek-v4-flash"),
+    // legacy flat: input 1 / output 2 / cache-hit 0.02 per 1M, no off-peak discount
+    messageEvent(LEGACY_AT, 1, 1, "m1", { inputTokens: 100, outputTokens: 100, cacheReadTokens: 1000, cacheWriteTokens: 0 })
+  ]);
+  // (100*1 + 100*2 + 1000*0.02)/1e6 = (100 + 200 + 20)/1e6 = 0.00032
+  assert.ok(Math.abs(view.totalCost - 0.00032) < 1e-12);
+  // same usage at legacy off-peak time (18:00 BJ would be off-peak under the new
+  // scheme) must NOT be discounted: still 0.00032
+  const legacyOffpeak = runProjection([
+    headerEvent("deepseek-official", "deepseek-v4-flash"),
+    messageEvent("2026-08-16T10:00:00Z", 1, 1, "m1", { inputTokens: 100, outputTokens: 100, cacheReadTokens: 1000, cacheWriteTokens: 0 })
+  ]);
+  assert.ok(Math.abs(legacyOffpeak.view.totalCost - 0.00032) < 1e-12);
 });
 
 test("peakCost: cache-read tokens priced at the cache-hit rate", () => {
