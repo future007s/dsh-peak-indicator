@@ -1,0 +1,7 @@
+# dsh-peak-indicator bundle patch: mounts the peak/off-peak billing badge into a
+# dsh profile composition. Installed via `dsh plugin --profile <name> add
+# dsh-peak-indicator` (the bundle manifest makes it a profile layer), or by
+# adding this insert to the profile's cordis.patch.yml manually.
+- insert:
+    - id: peak-indicator
+      name: 'dsh-peak-indicator'
