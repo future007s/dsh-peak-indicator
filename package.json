@@ -56,5 +56,13 @@
   "devDependencies": {
     "@deepseek-ai/schemastery": "^3.18.1",
     "zod": "^4.4.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/future007s/dsh-peak-indicator.git"
+  },
+  "author": {
+    "name": "Jim",
+    "email": "future007s@outlook.com"
   }
 }
