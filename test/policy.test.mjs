@@ -140,3 +140,28 @@ test("peakCost: per-message entries carry the owning turn for client-side turn a
   assert.ok(Math.abs(view.totalCost - 0.001575) < 1e-9);
 });
 
+test("peakCost: non-DeepSeek models priced flat with no peak/off-peak discount", () => {
+  const { view } = runProjection([
+    headerEvent("openai", "gpt-4o"),
+    messageEvent(PEAK_AT, 1, 1, "m1", { inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 }),
+    messageEvent(OFFPEAK_AT, 2, 1, "m2", { inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 })
+  ]);
+  // gpt-4o flat: (100*18 + 100*72)/1e6 = 0.009; identical at peak and off-peak times
+  assert.ok(Math.abs(view.messageCosts.m1.cost - 0.009) < 1e-12);
+  assert.ok(Math.abs(view.messageCosts.m2.cost - 0.009) < 1e-12);
+  assert.ok(Math.abs(view.totalCost - 0.018) < 1e-12);
+});
+
+test("peakCost: custom model priced via config.prices", () => {
+  const cfg = Config["~standard"].validate({
+    prices: { "acme-large": { input: 5, output: 10, cacheHitInput: 1 } }
+  }).value;
+  const unit = createPeakCostProjection(cfg);
+  let state = unit.init();
+  state = unit.apply(state, { type: "request/header", time: Date.parse(PEAK_AT), data: { header: { config: { provider: "acme", model: "acme-large" } } } });
+  state = unit.apply(state, messageEvent(PEAK_AT, 1, 1, "m1", { inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 }));
+  const view = unit.view(state);
+  // (100*5 + 100*10)/1e6 = 0.0015
+  assert.ok(Math.abs(view.totalCost - 0.0015) < 1e-12);
+});
+
