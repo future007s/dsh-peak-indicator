@@ -108,3 +108,17 @@ test("peakCost: two turns accumulate, per-message costs stay separate", () => {
   assert.ok(Math.abs(view.totalCost - 0.0054) < 1e-9);
 });
 
+test("peakCost: per-message entries carry the owning turn for client-side turn aggregation", () => {
+  const { view } = runProjection([
+    headerEvent("deepseek-official", "deepseek-v4-flash"),
+    messageEvent(PEAK_AT, 7, 1, "s1", { inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 }),
+    messageEvent(PEAK_AT, 7, 2, "s2", { inputTokens: 50, outputTokens: 25, cacheReadTokens: 0, cacheWriteTokens: 0 })
+  ]);
+  assert.equal(view.messageCosts.s1.turn, 7);
+  assert.equal(view.messageCosts.s2.turn, 7);
+  // both steps of turn 7: 0.0012 + (50*3 + 25*9)/1e6 = 0.0012 + 0.000375 = 0.001575
+  const turn7Total = Object.values(view.messageCosts).filter((e) => e.turn === 7).reduce((a, e) => a + e.cost, 0);
+  assert.ok(Math.abs(turn7Total - 0.001575) < 1e-9);
+  assert.ok(Math.abs(view.totalCost - 0.001575) < 1e-9);
+});
+
