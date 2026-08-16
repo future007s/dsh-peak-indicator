@@ -3,8 +3,8 @@
 // half-price off-peak). Run with: node --test
 import test from "node:test";
 import assert from "node:assert/strict";
-import { currentPeriod } from "../lib/index.js";
-import { Config } from "../lib/index.js";
+import { currentPeriod, Config } from "../lib/index.js";
+import { createPeakCostProjection } from "../lib/index.js";
 
 const config = Config["~standard"].validate({}).value;
 
@@ -26,3 +26,85 @@ test("off-peak outside the windows", () => {
   assert.equal(currentPeriod(at("2026-08-17T05:00:00Z"), config).period, "offpeak"); // 13:00 BJ
   assert.equal(currentPeriod(at("2026-08-17T15:00:00Z"), config).period, "offpeak"); // 23:00 BJ
 });
+
+// ---- peakCost projection: real token usage priced at the rates in effect
+// at each event's own timestamp (peak = 3x input / 9x output / 0.1 cache-hit
+// per 1M tokens for flash; off-peak is half) ----
+
+const PEAK_AT = "2026-08-17T01:00:00Z"; // 09:00 BJ -> peak
+const OFFPEAK_AT = "2026-08-16T17:00:00Z"; // 01:00 BJ -> off-peak
+
+function runProjection(events) {
+  const unit = createPeakCostProjection(config);
+  let state = unit.init();
+  for (const event of events) state = unit.apply(state, event);
+  return { view: unit.view(state), state };
+}
+
+function headerEvent(provider, model) {
+  return {
+    type: "request/header",
+    time: Date.parse(PEAK_AT),
+    data: { header: { config: { provider, model } } }
+  };
+}
+
+function messageEvent(time, turn, step, id, usage) {
+  return {
+    type: "assistant/message",
+    time: Date.parse(time),
+    data: { turn, step, message: { id }, usage }
+  };
+}
+
+test("peakCost: flash 100 in + 100 out at peak prices to 0.0012 CNY", () => {
+  const { view } = runProjection([
+    headerEvent("deepseek-official", "deepseek-v4-flash"),
+    messageEvent(PEAK_AT, 1, 1, "m1", { inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 })
+  ]);
+  assert.ok(Math.abs(view.totalCost - 0.0012) < 1e-9);
+  assert.ok(Math.abs(view.messageCosts.m1.cost - 0.0012) < 1e-9);
+  assert.equal(view.currency, "CNY");
+});
+
+test("peakCost: same usage at off-peak costs half (0.0006 CNY)", () => {
+  const { view } = runProjection([
+    headerEvent("deepseek-official", "deepseek-v4-flash"),
+    messageEvent(OFFPEAK_AT, 1, 1, "m1", { inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 })
+  ]);
+  assert.ok(Math.abs(view.totalCost - 0.0006) < 1e-9);
+});
+
+test("peakCost: cache-read tokens priced at the cache-hit rate", () => {
+  const { view } = runProjection([
+    headerEvent("deepseek-official", "deepseek-v4-flash"),
+    messageEvent(PEAK_AT, 1, 1, "m1", { inputTokens: 0, outputTokens: 0, cacheReadTokens: 100, cacheWriteTokens: 0 })
+  ]);
+  // 100 x 0.1 / 1e6 = 0.00001
+  assert.ok(Math.abs(view.totalCost - 1e-5) < 1e-12);
+});
+
+test("peakCost: chunk usage and message usage of the same turn are counted once", () => {
+  const { view } = runProjection([
+    headerEvent("deepseek-official", "deepseek-v4-flash"),
+    { type: "assistant/chunk", time: Date.parse(PEAK_AT), data: { turn: 1, step: 1, chunk: { type: "usage", usage: { inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 } } } },
+    messageEvent(PEAK_AT, 1, 1, "m1", { inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 })
+  ]);
+  const bucket = view.byModel["deepseek-official/deepseek-v4-flash"];
+  assert.equal(bucket.uncachedInputTokens, 100);
+  assert.equal(bucket.outputTokens, 100);
+  assert.ok(Math.abs(view.totalCost - 0.0012) < 1e-9);
+});
+
+test("peakCost: two turns accumulate, per-message costs stay separate", () => {
+  const { view } = runProjection([
+    headerEvent("deepseek-official", "deepseek-v4-pro"),
+    messageEvent(PEAK_AT, 1, 1, "m1", { inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 }),
+    messageEvent(OFFPEAK_AT, 2, 1, "m2", { inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 })
+  ]);
+  // pro peak: (100*9 + 100*27)/1e6 = 0.0036 ; pro off-peak: (100*4.5 + 100*13.5)/1e6 = 0.0018
+  assert.ok(Math.abs(view.messageCosts.m1.cost - 0.0036) < 1e-9);
+  assert.ok(Math.abs(view.messageCosts.m2.cost - 0.0018) < 1e-9);
+  assert.ok(Math.abs(view.totalCost - 0.0054) < 1e-9);
+});
+
