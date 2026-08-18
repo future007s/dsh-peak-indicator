@@ -1,6 +1,6 @@
 {
   "name": "dsh-peak-indicator",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "description": "DeepSeek API 高峰/闲时（峰谷）计价标记 for DSH Web: 会话头部显示当前处于高峰还是闲时（半价）时段",
   "type": "module",
   "main": "lib/index.js",
@@ -41,6 +41,16 @@
       ],
       "platform": "web"
     }
+  },
+  "dshClient": {
+    "inject": [
+      "@deepseek-ai/dsh-client-locale",
+      "@deepseek-ai/dsh-client-runtime",
+      "@deepseek-ai/dsh-client-ui-conversation",
+      "@deepseek-ai/dsh-client-ui-model-selection",
+      "@deepseek-ai/dsh-client-ui-slots"
+    ],
+    "platform": "web"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
