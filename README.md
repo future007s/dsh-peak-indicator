@@ -71,7 +71,7 @@ tokens 与估算节省金额。
       name: 'dsh-peak-indicator'
       config:
         autoCompact:
-          enabled: true          # 默认 false
+          enabled: true          # 默认开启；填 false 可关闭
           contextBudget: 100000  # 上下文超过该 token 数即压缩
           retainTokens: 15000    # 压缩后保留最近 tokens
           referenceWindow: 256000
