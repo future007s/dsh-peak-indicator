@@ -61,7 +61,7 @@ host 配置主要用于程序化调用 `ctx.peakIndicator.current()`。
 ## 自动压缩成本守护（可选，v0.1.12+）
 
 长会话每步都会把整个上下文重读（缓存读取费用随上下文线性增长，且隔夜后缓存失效
-会按全价重读）。开启后插件会把 DSH 的压缩触发点从默认的"模型窗口 80%"调到预算值，
+会按全价重读）。开启后会把 DSH 内置 `compaction-basic` 的压缩触发点从默认的"模型窗口 80%"调到预算值，
 让旧轮次提前折叠成摘要，大幅降低后续每步成本，并在日志中记录每次压缩移除的
 tokens 与估算节省金额。
 
@@ -76,5 +76,10 @@ tokens 与估算节省金额。
           retainTokens: 15000    # 压缩后保留最近 tokens
           referenceWindow: 256000
 ```
+
+当前 DSH 版本的 `compaction` 位于 agent preset 的隔离 realm，插件会通过 DSH loader
+定位并配置内置 `compaction-basic`，因此不需要额外的启动参数或 patch 文件。
+插件继续通过 `tokenMeter` 观察压缩前后的 token 差并记录估算节省；压缩引擎和摘要生成由
+DSH 内置 `compaction-basic` 负责。
 
 注意：压缩会把旧轮次折叠成摘要，历史细节只保留摘要内容；默认关闭，按需开启。
