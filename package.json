@@ -1,6 +1,6 @@
 {
   "name": "dsh-peak-indicator",
-  "version": "0.1.20",
+  "version": "0.1.21",
   "description": "DeepSeek API 高峰/闲时（峰谷）计价标记 for DSH Web: 会话头部显示当前处于高峰还是闲时（半价）时段",
   "type": "module",
   "main": "lib/index.js",
