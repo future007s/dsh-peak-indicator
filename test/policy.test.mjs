@@ -165,3 +165,15 @@ test("peakCost: custom model priced via config.prices", () => {
   assert.ok(Math.abs(view.totalCost - 0.0015) < 1e-12);
 });
 
+
+test("peakCost: each message records the period of its own timestamp", () => {
+  const { view } = runProjection([
+    headerEvent("deepseek-official", "deepseek-v4-flash"),
+    messageEvent(PEAK_AT, 1, 1, "m1", { inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 }),
+    messageEvent(OFFPEAK_AT, 2, 1, "m2", { inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 }),
+    messageEvent(LEGACY_AT, 3, 1, "m3", { inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 })
+  ]);
+  assert.equal(view.messageCosts.m1.period, "peak");
+  assert.equal(view.messageCosts.m2.period, "offpeak");
+  assert.equal(view.messageCosts.m3.period, "offpeak"); // 18:00 BJ window is off-peak, even under legacy flat pricing
+});
