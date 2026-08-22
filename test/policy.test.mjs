@@ -27,6 +27,38 @@ test("off-peak outside the windows", () => {
   assert.equal(currentPeriod(at("2026-08-17T15:00:00Z"), config).period, "offpeak"); // 23:00 BJ
 });
 
+// ---- weekends: off-peak all day, effective 2026-08-23 00:00 Beijing
+// (2026-08-22 16:00 UTC). Before that instant the peak windows applied on
+// Saturdays and Sundays too, and replaying an old session log must still
+// price those hours the old way. ----
+
+test("Beijing weekends are off-peak inside the peak windows", () => {
+  assert.equal(currentPeriod(at("2026-08-23T01:30:00Z"), config).period, "offpeak"); // Sun 09:30 BJ
+  assert.equal(currentPeriod(at("2026-08-23T07:00:00Z"), config).period, "offpeak"); // Sun 15:00 BJ
+  assert.equal(currentPeriod(at("2026-08-29T01:30:00Z"), config).period, "offpeak"); // Sat 09:30 BJ
+});
+
+test("weekdays keep their peak windows", () => {
+  assert.equal(currentPeriod(at("2026-08-24T01:30:00Z"), config).period, "peak"); // Mon 09:30 BJ
+  assert.equal(currentPeriod(at("2026-08-28T07:00:00Z"), config).period, "peak"); // Fri 15:00 BJ
+});
+
+test("the weekend is a Beijing week, not a UTC one", () => {
+  // Both instants are 09:30 Beijing; they differ only in which Beijing day
+  // they land on, and the UTC date alone cannot tell them apart from the
+  // 16:00-24:00 UTC stretch where the two calendars disagree.
+  assert.equal(currentPeriod(at("2026-08-23T15:59:59Z"), config).period, "offpeak"); // Sun 23:59 BJ
+  assert.equal(currentPeriod(at("2026-08-23T16:00:00Z"), config).beijingMinutes, 0); // Mon 00:00 BJ
+  assert.equal(currentPeriod(at("2026-08-28T16:30:00Z"), config).period, "offpeak"); // Sat 00:30 BJ (UTC Friday)
+});
+
+test("hours before the rule took effect keep the old answer", () => {
+  // 2026-08-15 was a Saturday, and 09:00 Beijing on it was still peak.
+  assert.equal(currentPeriod(at("2026-08-15T01:00:00Z"), config).period, "peak");
+  // The rule's own first instant is 00:00 Beijing on Sunday 2026-08-23.
+  assert.equal(currentPeriod(at("2026-08-22T16:00:00Z"), config).period, "offpeak");
+});
+
 // ---- peakCost projection: real token usage priced at the rates in effect
 // at each event's own timestamp (peak = 3x input / 9x output / 0.1 cache-hit
 // per 1M tokens for flash; off-peak is half) ----
