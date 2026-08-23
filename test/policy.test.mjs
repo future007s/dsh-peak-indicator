@@ -27,9 +27,26 @@ test("off-peak outside the windows", () => {
   assert.equal(currentPeriod(at("2026-08-17T15:00:00Z"), config).period, "offpeak"); // 23:00 BJ
 });
 
+test("Beijing weekends are off-peak inside the weekday peak windows", () => {
+  assert.equal(currentPeriod(at("2026-08-23T01:30:00Z"), config).period, "offpeak"); // Sun 09:30 BJ
+  assert.equal(currentPeriod(at("2026-08-23T07:00:00Z"), config).period, "offpeak"); // Sun 15:00 BJ
+  assert.equal(currentPeriod(at("2026-08-29T01:30:00Z"), config).period, "offpeak"); // Sat 09:30 BJ
+});
+
+test("weekdays keep their peak windows after the weekend policy", () => {
+  assert.equal(currentPeriod(at("2026-08-24T01:30:00Z"), config).period, "peak"); // Mon 09:30 BJ
+  assert.equal(currentPeriod(at("2026-08-28T07:00:00Z"), config).period, "peak"); // Fri 15:00 BJ
+});
+
+test("weekend detection uses the Beijing calendar and respects the effective instant", () => {
+  assert.equal(currentPeriod(at("2026-08-28T16:30:00Z"), config).period, "offpeak"); // Sat 00:30 BJ, UTC Friday
+  assert.equal(currentPeriod(at("2026-08-15T01:00:00Z"), config).period, "peak"); // pre-policy Sat 09:00 BJ
+  assert.equal(currentPeriod(at("2026-08-22T16:00:00Z"), config).period, "offpeak"); // policy first instant
+});
+
 // ---- peakCost projection: real token usage priced at the rates in effect
-// at each event's own timestamp (peak = 3x input / 9x output / 0.1 cache-hit
-// per 1M tokens for flash; off-peak is half) ----
+// at each event's own timestamp (flash peak = $0.44 input / $1.32 output /
+// $0.014 cache-hit per 1M tokens; off-peak is half) ----
 
 const PEAK_AT = "2026-08-17T01:00:00Z"; // 09:00 BJ 8/17 -> peak (new price list)
 const OFFPEAK_AT = "2026-08-17T05:00:00Z"; // 13:00 BJ 8/17 -> off-peak (new price list)
@@ -58,22 +75,22 @@ function messageEvent(time, turn, step, id, usage) {
   };
 }
 
-test("peakCost: flash 100 in + 100 out at peak prices to 0.0012 CNY", () => {
+test("peakCost: flash 100 in + 100 out at peak prices to $0.000176", () => {
   const { view } = runProjection([
     headerEvent("deepseek-official", "deepseek-v4-flash"),
     messageEvent(PEAK_AT, 1, 1, "m1", { inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 })
   ]);
-  assert.ok(Math.abs(view.totalCost - 0.0012) < 1e-9);
-  assert.ok(Math.abs(view.messageCosts.m1.cost - 0.0012) < 1e-9);
-  assert.equal(view.currency, "CNY");
+  assert.ok(Math.abs(view.totalCost - 0.000176) < 1e-12);
+  assert.ok(Math.abs(view.messageCosts.m1.cost - 0.000176) < 1e-12);
+  assert.equal(view.currency, "USD");
 });
 
-test("peakCost: same usage at off-peak costs half (0.0006 CNY)", () => {
+test("peakCost: same usage at off-peak costs half ($0.000088)", () => {
   const { view } = runProjection([
     headerEvent("deepseek-official", "deepseek-v4-flash"),
     messageEvent(OFFPEAK_AT, 1, 1, "m1", { inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 })
   ]);
-  assert.ok(Math.abs(view.totalCost - 0.0006) < 1e-9);
+  assert.ok(Math.abs(view.totalCost - 0.000088) < 1e-12);
 });
 
 test("peakCost: usage before 2026-08-17 is priced at flat legacy rates", () => {
@@ -98,8 +115,8 @@ test("peakCost: cache-read tokens priced at the cache-hit rate", () => {
     headerEvent("deepseek-official", "deepseek-v4-flash"),
     messageEvent(PEAK_AT, 1, 1, "m1", { inputTokens: 0, outputTokens: 0, cacheReadTokens: 100, cacheWriteTokens: 0 })
   ]);
-  // 100 x 0.1 / 1e6 = 0.00001
-  assert.ok(Math.abs(view.totalCost - 1e-5) < 1e-12);
+  // 100 x $0.014 / 1M = $0.0000014
+  assert.ok(Math.abs(view.totalCost - 1.4e-6) < 1e-12);
 });
 
 test("peakCost: chunk usage and message usage of the same turn are counted once", () => {
@@ -111,7 +128,7 @@ test("peakCost: chunk usage and message usage of the same turn are counted once"
   const bucket = view.byModel["deepseek-official/deepseek-v4-flash"];
   assert.equal(bucket.uncachedInputTokens, 100);
   assert.equal(bucket.outputTokens, 100);
-  assert.ok(Math.abs(view.totalCost - 0.0012) < 1e-9);
+  assert.ok(Math.abs(view.totalCost - 0.000176) < 1e-12);
 });
 
 test("peakCost: two turns accumulate, per-message costs stay separate", () => {
@@ -120,10 +137,10 @@ test("peakCost: two turns accumulate, per-message costs stay separate", () => {
     messageEvent(PEAK_AT, 1, 1, "m1", { inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 }),
     messageEvent(OFFPEAK_AT, 2, 1, "m2", { inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 })
   ]);
-  // pro peak: (100*9 + 100*27)/1e6 = 0.0036 ; pro off-peak: (100*4.5 + 100*13.5)/1e6 = 0.0018
-  assert.ok(Math.abs(view.messageCosts.m1.cost - 0.0036) < 1e-9);
-  assert.ok(Math.abs(view.messageCosts.m2.cost - 0.0018) < 1e-9);
-  assert.ok(Math.abs(view.totalCost - 0.0054) < 1e-9);
+  // pro peak: (100*$1.32 + 100*$3.96)/1M = $0.000528; off-peak is half.
+  assert.ok(Math.abs(view.messageCosts.m1.cost - 0.000528) < 1e-12);
+  assert.ok(Math.abs(view.messageCosts.m2.cost - 0.000264) < 1e-12);
+  assert.ok(Math.abs(view.totalCost - 0.000792) < 1e-12);
 });
 
 test("peakCost: per-message entries carry the owning turn for client-side turn aggregation", () => {
@@ -134,10 +151,10 @@ test("peakCost: per-message entries carry the owning turn for client-side turn a
   ]);
   assert.equal(view.messageCosts.s1.turn, 7);
   assert.equal(view.messageCosts.s2.turn, 7);
-  // both steps of turn 7: 0.0012 + (50*3 + 25*9)/1e6 = 0.0012 + 0.000375 = 0.001575
+  // both steps of turn 7: $0.000176 + (50*$0.44 + 25*$1.32)/1M = $0.000231
   const turn7Total = Object.values(view.messageCosts).filter((e) => e.turn === 7).reduce((a, e) => a + e.cost, 0);
-  assert.ok(Math.abs(turn7Total - 0.001575) < 1e-9);
-  assert.ok(Math.abs(view.totalCost - 0.001575) < 1e-9);
+  assert.ok(Math.abs(turn7Total - 0.000231) < 1e-12);
+  assert.ok(Math.abs(view.totalCost - 0.000231) < 1e-12);
 });
 
 test("peakCost: non-DeepSeek models priced flat with no peak/off-peak discount", () => {
@@ -185,14 +202,14 @@ test("autoCompact: budget maps to the compaction trigger ratio", () => {
 });
 
 test("autoCompact: savings estimate prices removed tokens at the input rate", () => {
-  // flash off-peak input is 1.5 CNY/M
-  assert.ok(Math.abs(estimateCompactSavings(200000, { input: 1.5 }) - 0.3) < 1e-9);
-  assert.ok(Math.abs(estimateCompactSavings(470000, { input: 1.5 }) - 0.705) < 1e-9);
+  // flash off-peak input is $0.22/M
+  assert.ok(Math.abs(estimateCompactSavings(200000, { input: 0.22 }) - 0.044) < 1e-12);
+  assert.ok(Math.abs(estimateCompactSavings(470000, { input: 0.22 }) - 0.1034) < 1e-12);
 });
 
-test("autoCompact: config defaults apply and stay off by default", () => {
+test("autoCompact: config defaults apply and stay enabled by default", () => {
   const cfg = Config["~standard"].validate({}).value;
-  assert.equal(cfg.autoCompact.enabled, false);
+  assert.equal(cfg.autoCompact.enabled, true);
   assert.equal(cfg.autoCompact.contextBudget, 100000);
   assert.equal(cfg.autoCompact.retainTokens, 15000);
   const on = Config["~standard"].validate({ autoCompact: { enabled: true, contextBudget: 80000 } }).value;
