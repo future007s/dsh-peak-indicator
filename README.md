@@ -30,7 +30,7 @@ Claude、Gemini 等长会话都可受益。插件会对内置价格表已知的�
 
 - ⚡ **高峰 · 本会话$0.12**（红色徽标）：仅周一至周五北京时间 09:00–12:00、14:00–18:00
 - 🌙 **闲时 · 本会话$0.12**（绿色徽标）：其余时段，周六、周日全天均按闲时价
-- 悬停显示：当前官方美元单价（每百万 tokens）+ 当前北京时间 + 切换倒计时
+- 徽标内常驻显示距离下一次峰谷切换的倒计时；悬停可查看当前官方美元单价（每百万 tokens）和当前北京时间
 
 **每轮聊天末尾**还会显示本轮实际 token 消耗金额（如 `本轮 $0.08`，常显在消息统计行）。
 
@@ -46,8 +46,8 @@ Claude、Gemini 等长会话都可受益。插件会对内置价格表已知的�
 
 徽标**仅在当前会话使用 DeepSeek flash/pro 模型时显示**（provider 为 DeepSeek 且模型名含
 flash 或 pro，如 `deepseek-v4-flash`、`deepseek-v4-pro`）；使用其他模型时自动隐藏。
-悬停徽标可看到当前北京时间、完整价格明细（含缓存命中价）以及距离下次切换的倒计时；
-徽标每 30 秒自动刷新。DeepSeek 调价后请更新 `lib/client.js` 中的 `MODEL_PRICES`。
+徽标会常驻显示距离下次切换的倒计时，并每 30 秒自动刷新；悬停可看到当前北京时间和完整价格明细（含缓存命中价）。
+DeepSeek 调价后请更新 `lib/client.js` 中的 `MODEL_PRICES`。
 
 时段规则依据 DeepSeek 官方峰谷定价公告（北京时间 2026-08-17 00:00 生效）：空闲时段价格为高峰时段的一半。
 
@@ -63,6 +63,25 @@ flash 或 pro，如 `deepseek-v4-flash`、`deepseek-v4-pro`）；使用其他模
 ```
 
 刷新浏览器（Ctrl+Shift+R）后，会话头部即可看到徽标。
+
+## 兼容性与一次性 Profile 验证
+
+- Node.js：`>=22.13.0`
+- DSH：`>=0.1.0-rc.7`；已验证兼容 `rc.7`、`rc.8`、`0.1.1-rc.1` 和 `0.1.1-rc.2`。
+- Profile：`web`
+
+在隔离的临时 Profile 中，依次执行安装、启动和卸载即可复核插件生命周期。启动时可使用 `--port 0`
+让 DSH 自动选择空闲端口，避免占用日常 Web Profile 的端口；不要在验证期间停止或修改正在使用的 Profile。
+
+```sh
+dsh plugin --profile <temporary-profile> add dsh-peak-indicator@<version>
+dsh --profile <temporary-profile> --dump-config
+dsh --profile <temporary-profile> --port 0
+dsh plugin --profile <temporary-profile> remove dsh-peak-indicator
+```
+
+已在 macOS、Node.js `v24.10.0`、DSH `0.1.1-rc.2` 的 Web Profile 完成配置加载，并以随机端口和默认端口启动验证。实际操作记录应保留 DSH 版本、Node.js 版本、系统、Profile 名称和每一步结果；
+未执行的运行验收不应标注为“通过”。
 
 ## 配置（host 侧，可选）
 
