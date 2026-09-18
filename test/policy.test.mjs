@@ -45,12 +45,13 @@ test("weekend detection uses the Beijing calendar and respects the effective ins
 });
 
 // ---- peakCost projection: real token usage priced at the rates in effect
-// at each event's own timestamp (flash peak = $0.44 input / $1.32 output /
+// at each event's own timestamp (V4 peak = $0.44 input / $1.32 output /
 // $0.014 cache-hit per 1M tokens; off-peak is half) ----
 
 const PEAK_AT = "2026-08-17T01:00:00Z"; // 09:00 BJ 8/17 -> peak (new price list)
 const OFFPEAK_AT = "2026-08-17T05:00:00Z"; // 13:00 BJ 8/17 -> off-peak (new price list)
 const LEGACY_AT = "2026-08-16T10:00:00Z"; // 18:00 BJ 8/16 -> before the 8/17 policy: flat legacy prices
+const V41_AT = "2026-09-10T06:00:00Z"; // 14:00 BJ 9/10 -> V4.1-Flash price list, peak
 
 function runProjection(events) {
   const unit = createPeakCostProjection(config);
@@ -91,6 +92,23 @@ test("peakCost: same usage at off-peak costs half ($0.000088)", () => {
     messageEvent(OFFPEAK_AT, 1, 1, "m1", { inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 })
   ]);
   assert.ok(Math.abs(view.totalCost - 0.000088) < 1e-12);
+});
+
+test("peakCost: V4.1 Flash price applies from 2026-09-10", () => {
+  const { view } = runProjection([
+    headerEvent("deepseek-official", "deepseek-flash"),
+    messageEvent(V41_AT, 1, 1, "m1", { inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 })
+  ]);
+  // V4.1 Flash peak: (100*$0.30 + 100*$1.20)/1M = $0.00015
+  assert.ok(Math.abs(view.totalCost - 0.00015) < 1e-12);
+});
+
+test("peakCost: retired Flash aliases use V4.1 Flash pricing", () => {
+  const { view } = runProjection([
+    headerEvent("deepseek-official", "deepseek-v4-flash-vision-exp"),
+    messageEvent(V41_AT, 1, 1, "m1", { inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 })
+  ]);
+  assert.ok(Math.abs(view.totalCost - 0.00015) < 1e-12);
 });
 
 test("peakCost: usage before 2026-08-17 is priced at flat legacy rates", () => {

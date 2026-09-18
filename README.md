@@ -38,18 +38,22 @@ Claude、Gemini 等长会话都可受益。插件会对内置价格表已知的�
 
 | 模型 | 高峰 输入/输出/缓存命中 | 闲时 输入/输出/缓存命中 |
 | --- | --- | --- |
-| deepseek-v4-flash | 0.44 / 1.32 / 0.014 | 0.22 / 0.66 / 0.007 |
+| deepseek-flash（V4.1-Flash） | 0.30 / 1.20 / 0.006 | 0.15 / 0.60 / 0.003 |
 | deepseek-v4-pro | 1.32 / 3.96 / 0.044 | 0.66 / 1.98 / 0.022 |
 
 会话与本轮费用由宿主侧 `peakCost` 会话投影计算：重放会话日志中的真实 token 用量，按每个事件
 自身时间戳所处的时段（高峰/闲时）计价，缓存命中 token 按缓存价计算。
 
 徽标**仅在当前会话使用 DeepSeek flash/pro 模型时显示**（provider 为 DeepSeek 且模型名含
-flash 或 pro，如 `deepseek-v4-flash`、`deepseek-v4-pro`）；使用其他模型时自动隐藏。
+flash 或 pro，如 `deepseek-flash`、`deepseek-v4-flash`、`deepseek-v4-pro`）；使用其他模型时自动隐藏。
 徽标会常驻显示距离下次切换的倒计时，并每 30 秒自动刷新；悬停可看到当前北京时间和完整价格明细（含缓存命中价）。
-DeepSeek 调价后请更新 `lib/client.js` 中的 `MODEL_PRICES`。
+价格表按插件版本固定，插件不会在每次请求时联网抓取价格：这样历史会话可以按当时版本和事件时间稳定重放，
+官方调价后发布新插件版本更新即可；自定义模型仍可通过 `config.prices` 覆盖。当前数据来自
+[DeepSeek 官方模型与价格页](https://api-docs.deepseek.com/quick_start/pricing/)，宿主端和浏览器端价格表需同步更新。
 
-时段规则依据 DeepSeek 官方峰谷定价公告（北京时间 2026-08-17 00:00 生效）：空闲时段价格为高峰时段的一半。
+时段规则依据 DeepSeek 官方峰谷定价公告：峰值时段为工作日北京时间 09:00–12:00、14:00–18:00，
+周末全天闲时；闲时价格为高峰时段的一半。V4.1-Flash 新价格自北京时间 2026-09-10 12:00 起生效，
+旧模型名 `deepseek-v4-flash` 和 `deepseek-v4-flash-vision-exp` 均按 V4.1-Flash 价格计费。
 
 ## 安装
 
@@ -96,6 +100,7 @@ dsh plugin --profile <temporary-profile> remove dsh-peak-indicator
         offPeakDiscount: 0.5
         policyEffectiveDate: '2026-08-17T00:00:00+08:00'
         weekendOffPeakEffectiveDate: '2026-08-23T00:00:00+08:00'
+        v41FlashEffectiveDate: '2026-09-10T12:00:00+08:00'
 ```
 
 注意：浏览器端的徽标计算使用与官方价格页一致的内置时段（工作日北京 09:00–12:00、14:00–18:00；周末全天闲时），
