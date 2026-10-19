@@ -227,10 +227,10 @@ test("autoCompact: savings estimate prices removed tokens at the input rate", ()
 
 test("autoCompact: config defaults apply and stay enabled by default", () => {
   const cfg = Config["~standard"].validate({}).value;
-  assert.equal(cfg.autoCompact.enabled, true);
-  assert.equal(cfg.autoCompact.contextBudget, 100000);
-  assert.equal(cfg.autoCompact.retainTokens, 15000);
+  assert.equal(cfg.autoCompact.get().enabled, true);
+  assert.equal(cfg.autoCompact.get().contextBudget, 100000);
+  assert.equal(cfg.autoCompact.get().retainTokens, 15000);
   const on = Config["~standard"].validate({ autoCompact: { enabled: true, contextBudget: 80000 } }).value;
-  assert.equal(on.autoCompact.enabled, true);
-  assert.equal(on.autoCompact.contextBudget, 80000);
+  assert.equal(on.autoCompact.get().enabled, true);
+  assert.equal(on.autoCompact.get().contextBudget, 80000);
 });

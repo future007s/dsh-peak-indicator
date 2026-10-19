@@ -55,37 +55,52 @@ flash 或 pro，如 `deepseek-flash`、`deepseek-v4-flash`、`deepseek-v4-pro`�
 周末全天闲时；闲时价格为高峰时段的一半。V4.1-Flash 新价格自北京时间 2026-09-10 12:00 起生效，
 旧模型名 `deepseek-v4-flash` 和 `deepseek-v4-flash-vision-exp` 均按 V4.1-Flash 价格计费。
 
-## 安装
+## 安装（0.1.28）
 
-插件包放入 `~/.dsh/profiles/web/node_modules/dsh-peak-indicator/`（以及 dsh 安装目录的
-`node_modules/`），并在 `~/.dsh/profiles/web/cordis.patch.yml` 增加：
+此版本专门适配 **DSH `0.2.1-rc.2`**，使用新版配置表单、volatile 实时配置和预设内压缩服务。
+旧版 DSH 请继续使用相应的旧插件版本；新宿主版本需要重新验证，不自动声明兼容。
 
-```yaml
-- insert:
-    - id: peak-indicator
-      name: 'dsh-peak-indicator'
-```
-
-刷新浏览器（Ctrl+Shift+R）后，会话头部即可看到徽标。
-
-## 兼容性与一次性 Profile 验证
-
-- Node.js：`>=22.13.0`
-- DSH：`>=0.1.0-rc.7`；已验证兼容 `rc.7`、`rc.8`、`0.1.1-rc.1` 和 `0.1.1-rc.2`。
-- Profile：`web`
-
-在隔离的临时 Profile 中，依次执行安装、启动和卸载即可复核插件生命周期。启动时可使用 `--port 0`
-让 DSH 自动选择空闲端口，避免占用日常 Web Profile 的端口；不要在验证期间停止或修改正在使用的 Profile。
+从 npm 安装（仅在 0.1.28 已发布后可用）：
 
 ```sh
-dsh plugin --profile <temporary-profile> add dsh-peak-indicator@<version>
-dsh --profile <temporary-profile> --dump-config
-dsh --profile <temporary-profile> --port 0
-dsh plugin --profile <temporary-profile> remove dsh-peak-indicator
+dsh plugin --profile web add dsh-peak-indicator@0.1.28
 ```
 
-已在 macOS、Node.js `v24.10.0`、DSH `0.1.1-rc.2` 的 Web Profile 完成配置加载，并以随机端口和默认端口启动验证。实际操作记录应保留 DSH 版本、Node.js 版本、系统、Profile 名称和每一步结果；
-未执行的运行验收不应标注为“通过”。
+桌面版使用其实际 profile 名（通常为 `desktop`）。也可以在插件管理界面添加本地打包文件，
+或用 CLI 安装 `file:/absolute/path/dsh-peak-indicator-0.1.28.tgz`。安装后重启对应 profile 并刷新页面。
+不要复制插件到应用程序安装目录，也不需要忽略兼容检查。
+
+配置入口：**插件 → dsh-peak-indicator → 成本与上下文**，常规设置页也提供同一组控件。
+保存由宿主检查配置版本，加载中或只读时禁用控件，保存失败会显示提示。
+关闭“自动压缩长会话”时，恢复受本插件调整的压缩后端原有配置；DSH 自身原有的自动压缩策略仍由 DSH 管理。
+预算按 `contextBudget / referenceWindow` 映射到原生触发比例；实际触发取决于当前模型窗口和宿主余量策略。
+
+## 兼容性与验证
+
+- Node.js：`^22.19.0 || >=24.0.0`
+- DSH：仅 `0.2.1-rc.2`，`engines.dsh` 和官方包 peers 均明确锁定。
+- 使用 Web 前端的 `web` / `desktop` profile。
+- `npm test`：24 项，包括官方兼容门禁、真实会话投影服务、Zod 4 非空记录与持久化校验、峰谷规则和压缩策略恢复。
+- macOS / Node.js `v24.10.0` / 官方 npm DSH `0.2.1-rc.2`：隔离 Web profile 安装、启动和真实浏览器设置面板检查。
+- 不以单元测试代替长会话实际调用验收；此轮没有发起收费的模型请求。
+
+隔离验收请设置一个新的 `DSH_HOME`，避免更改日常 profile：
+
+```sh
+export DSH_HOME=/absolute/path/to/isolated-dsh-home
+dsh --profile web --dump-config
+dsh plugin --profile web add file:/absolute/path/dsh-peak-indicator-0.1.28.tgz
+dsh --profile web --port 0 --no-open
+dsh plugin --profile web remove dsh-peak-indicator
+```
+
+## 0.1.28 变更
+
+- 替换已移除的 `settingsNamespace` / `settings.register` / `settingsScope` 接口。
+- 使用 `plugins.bundle.config`、共享 `configForms` 和 `.volatile()` 配置。
+- 移除旧的 `dsh-client-runtime` 和重复的 `dshClient` 元数据，声明实际使用的模块依赖。
+- 修复 Zod 4 的 `record(keySchema, valueSchema)` 写法；投影初始状态使用 JSON 可持久化的 `null`，缓存版本升至 5。
+- 保留各个预设的压缩服务隔离，保留其他参数；不启用宿主层禁用的压缩后端，关闭或卸载时恢复原配置。
 
 ## 配置（host 侧，可选）
 
@@ -104,7 +119,7 @@ dsh plugin --profile <temporary-profile> remove dsh-peak-indicator
 ```
 
 注意：浏览器端的徽标计算使用与官方价格页一致的内置时段（工作日北京 09:00–12:00、14:00–18:00；周末全天闲时），
-host 配置主要用于程序化调用 `ctx.peakIndicator.current()`。
+host 配置用于会话费用投影和导出的计价辅助函数。
 
 ## 自动压缩的 YAML 配置（可选）
 
