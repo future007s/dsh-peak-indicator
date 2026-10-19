@@ -53,8 +53,8 @@ const OFFPEAK_AT = "2026-08-17T05:00:00Z"; // 13:00 BJ 8/17 -> off-peak (new pri
 const LEGACY_AT = "2026-08-16T10:00:00Z"; // 18:00 BJ 8/16 -> before the 8/17 policy: flat legacy prices
 const V41_AT = "2026-09-10T06:00:00Z"; // 14:00 BJ 9/10 -> V4.1-Flash price list, peak
 
-function runProjection(events) {
-  const unit = createPeakCostProjection(config);
+function runProjection(events, cfg = config) {
+  const unit = createPeakCostProjection(cfg);
   let state = unit.init();
   for (const event of events) state = unit.apply(state, event);
   return { view: unit.view(state), state };
@@ -175,13 +175,13 @@ test("peakCost: per-message entries carry the owning turn for client-side turn a
   assert.ok(Math.abs(view.totalCost - 0.000231) < 1e-12);
 });
 
-test("peakCost: non-DeepSeek models priced flat with no peak/off-peak discount", () => {
+test("peakCost: explicit USD non-DeepSeek prices stay flat with no peak/off-peak discount", () => {
   const { view } = runProjection([
     headerEvent("openai", "gpt-4o"),
     messageEvent(PEAK_AT, 1, 1, "m1", { inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 }),
     messageEvent(OFFPEAK_AT, 2, 1, "m2", { inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 })
-  ]);
-  // gpt-4o flat: (100*18 + 100*72)/1e6 = 0.009; identical at peak and off-peak times
+  ], Config["~standard"].validate({prices:{"gpt-4o":{input:18,output:72,cacheHitInput:9}}}).value);
+  // Explicit test fixture, USD per 1M: (100*18 + 100*72)/1e6 = 0.009; identical at peak and off-peak times
   assert.ok(Math.abs(view.messageCosts.m1.cost - 0.009) < 1e-12);
   assert.ok(Math.abs(view.messageCosts.m2.cost - 0.009) < 1e-12);
   assert.ok(Math.abs(view.totalCost - 0.018) < 1e-12);
@@ -227,10 +227,11 @@ test("autoCompact: savings estimate prices removed tokens at the input rate", ()
 
 test("autoCompact: config defaults apply and stay enabled by default", () => {
   const cfg = Config["~standard"].validate({}).value;
-  assert.equal(cfg.autoCompact.enabled, true);
-  assert.equal(cfg.autoCompact.contextBudget, 100000);
-  assert.equal(cfg.autoCompact.retainTokens, 15000);
+  assert.equal(cfg.autoCompact.get().enabled, true);
+  assert.equal(cfg.autoCompact.get().contextBudget, 100000);
+  assert.equal(cfg.autoCompact.get().retainTokens, 15000);
+  assert.equal(cfg.autoCompact.get().referenceWindow, 1000000);
   const on = Config["~standard"].validate({ autoCompact: { enabled: true, contextBudget: 80000 } }).value;
-  assert.equal(on.autoCompact.enabled, true);
-  assert.equal(on.autoCompact.contextBudget, 80000);
+  assert.equal(on.autoCompact.get().enabled, true);
+  assert.equal(on.autoCompact.get().contextBudget, 80000);
 });
