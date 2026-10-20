@@ -26,11 +26,11 @@ test('a known session model renders prices and account balance even if the advis
 });
 test('a new durable selection overrides a stale directory and last-used model',()=>{
  const {markup}=render({directoryState:{status:'ready',current:{provider:'deepseek-account',model:'deepseek-flash'}},selection:{next:{provider:'deepseek-official',model:'deepseek-v4-pro'},lastUsed:{provider:'deepseek-account',model:'deepseek-flash'}}});
- assert.match(markup,/DeepSeek-V4-Pro-0813/);assert.doesNotMatch(markup,/余额 ¥12.34/);
+ assert.match(markup,/DeepSeek-V4-Pro-0813/);assert.match(markup,/账户余额 ¥12.34/);
 });
 test('an unknown model after a catalog failure is unavailable, not permanently loading',()=>{
  const {markup}=render({selection:null});
- assert.doesNotMatch(markup,/模型加载中/);assert.match(markup,/当前模型暂不可用/);assert.doesNotMatch(markup,/余额 ¥12.34/);
+ assert.doesNotMatch(markup,/模型加载中/);assert.match(markup,/当前模型暂不可用/);assert.match(markup,/账户余额 ¥12.34/);
 });
 test('a fresh session can still use the model directory default',()=>{
  const {markup}=render({directoryState:{status:'ready',current:{provider:'deepseek-account',model:'deepseek-flash'}},selection:{next:null,lastUsed:null}});
