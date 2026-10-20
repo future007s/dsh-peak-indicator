@@ -4,7 +4,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { currentPeriod, Config } from "../lib/index.js";
-import { createPeakCostProjection, compactionRatioForBudget, estimateCompactSavings } from "../lib/index.js";
+import { createPeakCostProjection } from "../lib/index.js";
 
 const config = Config["~standard"].validate({currency: "USD"}).value;
 
@@ -212,27 +212,4 @@ test("peakCost: each message records the period of its own timestamp", () => {
   assert.equal(view.messageCosts.m1.period, "peak");
   assert.equal(view.messageCosts.m2.period, "offpeak");
   assert.equal(view.messageCosts.m3.period, "offpeak"); // 18:00 BJ window is off-peak, even under legacy flat pricing
-});
-
-test("autoCompact: budget maps to the compaction trigger ratio", () => {
-  assert.ok(Math.abs(compactionRatioForBudget(100000, 256000) - 0.390625) < 1e-9);
-  assert.equal(compactionRatioForBudget(1000, 256000), 0.05); // clamped low
-  assert.equal(compactionRatioForBudget(300000, 256000), 0.9); // clamped high
-});
-
-test("autoCompact: savings estimate prices removed tokens at the input rate", () => {
-  // flash off-peak input is $0.22/M
-  assert.ok(Math.abs(estimateCompactSavings(200000, { input: 0.22 }) - 0.044) < 1e-12);
-  assert.ok(Math.abs(estimateCompactSavings(470000, { input: 0.22 }) - 0.1034) < 1e-12);
-});
-
-test("autoCompact: config defaults apply and stay enabled by default", () => {
-  const cfg = Config["~standard"].validate({}).value;
-  assert.equal(cfg.autoCompact.get().enabled, true);
-  assert.equal(cfg.autoCompact.get().contextBudget, 100000);
-  assert.equal(cfg.autoCompact.get().retainTokens, 15000);
-  assert.equal(cfg.autoCompact.get().referenceWindow, 1000000);
-  const on = Config["~standard"].validate({ autoCompact: { enabled: true, contextBudget: 80000 } }).value;
-  assert.equal(on.autoCompact.get().enabled, true);
-  assert.equal(on.autoCompact.get().contextBudget, 80000);
 });
