@@ -1,6 +1,6 @@
 {
   "name": "dsh-peak-indicator",
-  "version": "0.1.31",
+  "version": "0.1.32",
   "description": "DeepSeek 峰谷时段、人民币 Token 费用估算与账户余额 for DSH Web / Desktop",
   "type": "module",
   "main": "lib/index.js",
