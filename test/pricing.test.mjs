@@ -5,7 +5,7 @@ import vm from 'node:vm';
 import {createRequire} from 'node:module';
 import {Config, createPeakCostProjection} from '../lib/index.js';
 import {billingPeriod, priceFor, modelPrices, modelDisplayName, canonicalModelId, nextTransitionInMinutes, SEARCH_FETCH_PRICING} from '../lib/pricing.js';
-const config=Config['~standard'].validate({}).value;
+const config=Config['~standard'].validate({currency:"USD"}).value;
 const peak=Date.parse('2026-10-19T01:00:00Z');
 const require=createRequire(import.meta.url);
 let client;
@@ -19,7 +19,7 @@ test('official current API IDs, dated names and retired Flash aliases use the pu
     assert.equal(modelDisplayName(model),'DeepSeek-V4.1-Flash-1017');
     assert.deepEqual(priceFor(model,'peak',peak,config),{input:0.3,output:1.2,cacheHitInput:0.006});
     assert.deepEqual(priceFor(model,'offpeak',peak,config),{input:0.15,output:0.6,cacheHitInput:0.003});
-    assert.deepEqual(JSON.parse(JSON.stringify(client.modelPrices(model,'peak'))),{input:0.3,output:1.2,cacheHitInput:0.006});
+    assert.deepEqual(JSON.parse(JSON.stringify(client.modelPrices(model,'peak','USD'))),{input:0.3,output:1.2,cacheHitInput:0.006});
   }
   assert.equal(modelDisplayName('DeepSeek-V4-Pro-0813'),'DeepSeek-V4-Pro-0813');
   assert.deepEqual(priceFor('DeepSeek-V4-Pro-0813','peak',peak,config),{input:1.32,output:3.96,cacheHitInput:0.044});
@@ -66,5 +66,5 @@ test('Search and Fetch request metadata keeps its own billing date and does not 
   assert.equal(SEARCH_FETCH_PRICING.usdPerSuccessfulRequest,0.00075);
   assert.equal(SEARCH_FETCH_PRICING.cnyPerSuccessfulRequest,0.005);
   assert.equal(Date.parse(SEARCH_FETCH_PRICING.serverToolsBillFrom),Date.parse('2026-10-31T16:00:00Z'));
-  assert.match(client.zh['tip.toolsBilled'],/不包含/);
+  assert.match(client.zh['tip.scope'],/不含/);
 });

@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { currentPeriod, Config } from "../lib/index.js";
 import { createPeakCostProjection, compactionRatioForBudget, estimateCompactSavings } from "../lib/index.js";
 
-const config = Config["~standard"].validate({}).value;
+const config = Config["~standard"].validate({currency: "USD"}).value;
 
 function at(iso) {
   return new Date(iso);
@@ -180,7 +180,7 @@ test("peakCost: explicit USD non-DeepSeek prices stay flat with no peak/off-peak
     headerEvent("openai", "gpt-4o"),
     messageEvent(PEAK_AT, 1, 1, "m1", { inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 }),
     messageEvent(OFFPEAK_AT, 2, 1, "m2", { inputTokens: 100, outputTokens: 100, cacheReadTokens: 0, cacheWriteTokens: 0 })
-  ], Config["~standard"].validate({prices:{"gpt-4o":{input:18,output:72,cacheHitInput:9}}}).value);
+  ], Config["~standard"].validate({currency:"USD",prices:{"gpt-4o":{input:18,output:72,cacheHitInput:9}}}).value);
   // Explicit test fixture, USD per 1M: (100*18 + 100*72)/1e6 = 0.009; identical at peak and off-peak times
   assert.ok(Math.abs(view.messageCosts.m1.cost - 0.009) < 1e-12);
   assert.ok(Math.abs(view.messageCosts.m2.cost - 0.009) < 1e-12);
@@ -189,6 +189,7 @@ test("peakCost: explicit USD non-DeepSeek prices stay flat with no peak/off-peak
 
 test("peakCost: custom model priced via config.prices", () => {
   const cfg = Config["~standard"].validate({
+    currency: "USD",
     prices: { "acme-large": { input: 5, output: 10, cacheHitInput: 1 } }
   }).value;
   const unit = createPeakCostProjection(cfg);
