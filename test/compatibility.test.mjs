@@ -9,9 +9,20 @@ import plugin, { Config, createPeakCostProjection } from '../lib/index.js';
 
 const manifest = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url)));
 
+test('Store has an exact declaration only for the verified host, consistent with the official gate', () => {
+  const releases = manifest.dsh.compatibility.dshReleases;
+  assert.deepEqual(releases, { '0.2.1-rc.2': 'compatible' });
+  assert.equal(manifest.dsh.compatibility.dsh, manifest.engines.dsh);
+  for (const [version, status] of Object.entries(releases)) {
+    if (status === 'compatible') {
+      assert.equal(evaluatePluginCompatibility(manifest, {}, version), undefined);
+    }
+  }
+});
+
 test('rc.2 passes the official compatibility gate without exemptions; untested hosts are refused', () => {
   assert.equal(evaluatePluginCompatibility(manifest, {}, '0.2.1-rc.2'), undefined);
-  for (const version of ['0.1.1-rc.2', '0.2.0-rc.2', '0.2.1-rc.1', '0.2.2-rc.1']) {
+  for (const version of ['0.1.1-rc.2', '0.2.0-rc.2', '0.2.1-alpha.5', '0.2.1-rc.1', '0.2.2-rc.1']) {
     assert.deepEqual(evaluatePluginCompatibility(manifest, {}, version).requirements, { 'engines.dsh': '0.2.1-rc.2' });
   }
 });

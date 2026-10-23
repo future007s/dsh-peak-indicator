@@ -40,6 +40,9 @@
     },
     "compatibility": {
       "dsh": "0.2.1-rc.2",
+      "dshReleases": {
+        "0.2.1-rc.2": "compatible"
+      },
       "profiles": [
         "web",
         "desktop"
