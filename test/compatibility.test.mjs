@@ -11,7 +11,7 @@ const manifest = JSON.parse(fs.readFileSync(new URL('../package.json', import.me
 
 test('Store has an exact declaration only for the verified host, consistent with the official gate', () => {
   const releases = manifest.dsh.compatibility.dshReleases;
-  assert.deepEqual(releases, { '0.2.1-rc.2': 'compatible' });
+  assert.deepEqual(releases, { '0.2.1-rc.2': 'compatible', '0.2.1-rc.5': 'compatible' });
   assert.equal(manifest.dsh.compatibility.dsh, manifest.engines.dsh);
   for (const [version, status] of Object.entries(releases)) {
     if (status === 'compatible') {
@@ -20,10 +20,23 @@ test('Store has an exact declaration only for the verified host, consistent with
   }
 });
 
-test('rc.2 passes the official compatibility gate without exemptions; untested hosts are refused', () => {
-  assert.equal(evaluatePluginCompatibility(manifest, {}, '0.2.1-rc.2'), undefined);
-  for (const version of ['0.1.1-rc.2', '0.2.0-rc.2', '0.2.1-alpha.5', '0.2.1-rc.1', '0.2.2-rc.1']) {
-    assert.deepEqual(evaluatePluginCompatibility(manifest, {}, version).requirements, { 'engines.dsh': '0.2.1-rc.2' });
+test('verified rc.2 and rc.5 pass the official gate without exemptions; untested hosts are refused', () => {
+  for (const version of ['0.2.1-rc.2', '0.2.1-rc.5']) {
+    assert.equal(evaluatePluginCompatibility(manifest, {}, version), undefined);
+  }
+  for (const version of ['0.1.1-rc.2', '0.2.0-rc.2', '0.2.1-alpha.5', '0.2.1-rc.1', '0.2.1-rc.3', '0.2.1-rc.4', '0.2.1-rc.6', '0.2.1', '0.2.2-rc.1']) {
+    assert.deepEqual(evaluatePluginCompatibility(manifest, {}, version).requirements, { 'engines.dsh': manifest.engines.dsh });
+  }
+});
+
+test('published rc.2-only versions reproduce the rc.5 rejection and all DSH peer ranges are updated', () => {
+  const oldManifest = structuredClone(manifest);
+  oldManifest.engines.dsh = '0.2.1-rc.2';
+  oldManifest.dsh.compatibility.dsh = '0.2.1-rc.2';
+  oldManifest.dsh.compatibility.dshReleases = { '0.2.1-rc.2': 'compatible' };
+  assert.ok(evaluatePluginCompatibility(oldManifest, {}, '0.2.1-rc.5'));
+  for (const [name, range] of Object.entries(manifest.peerDependencies)) {
+    if (name.startsWith('@deepseek-ai/dsh-')) assert.equal(range, manifest.engines.dsh, name);
   }
 });
 

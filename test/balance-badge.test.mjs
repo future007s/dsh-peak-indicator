@@ -51,7 +51,7 @@ test('actual client apply connects the optional account RPC and exposes its bala
   await new Promise(resolve=>setImmediate(resolve));
   const props=registrations.get('conversation.session.header.actions').options.inject('fixture');
   assert.equal(props.balance.getSnapshot().status,'ready');assert.equal(props.balance.getSnapshot().total,'¥12.34');assert.equal(reads,1);
-  assert.equal(metadata.version,'0.2.1-rc.2');assert.equal(metadata.locale,'zh-CN');
+  assert.equal(metadata.version,'0.2.1-rc.5');assert.equal(metadata.locale,'zh-CN');
   const html=renderToStaticMarkup(React.createElement(registrations.get('conversation.session.header.actions').component,{...props,t,useProjection:key=>key==='peakCost'?{currency:'CNY',totalCost:0.28}:{next:{provider:'deepseek-official',model:'deepseek-flash'},lastUsed:null}}));
   assert.match(html,/账户余额 ¥12.34/);
  }finally{await ctx.fiber.dispose()}

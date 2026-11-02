@@ -8,6 +8,12 @@ DeepSeek Harness (DSH) Web / Desktop 的峰谷计价与账户余额插件。
 - DSH 登录账户显示可用人民币余额（充值 + 赠金），每分钟刷新，也可点击刷新。
 - 悬停说明精简为模型名、当前单价、估算范围三行。
 
+## 0.1.34：适配 DSH 0.2.1-rc.5
+
+修复升级宿主后插件被兼容检查拦截、徽章不显示的问题。宿主范围与所有 DSH peer 依赖
+同时支持已核验的 `0.2.1-rc.2` 和 `0.2.1-rc.5`，并提供两个版本的 Store 精确声明。
+未验证的其他预发布版和正式版不自动放行；无需使用兼容性豁免。
+
 ## 0.1.33：徽章跟随浅色 / 深色主题
 
 峰谷、账户余额与每轮费用徽章跟随 DSH 当前主题即时切换，无需刷新页面。
@@ -99,11 +105,11 @@ Search / Fetch 等独立按次费用未计入：自北京时间 2026-11-01 00:00
 
 ## 安装与升级
 
-专门适配 DSH **`0.2.1-rc.2`**，支持使用 Web 前端的 `web` / `desktop` profile。
+支持已验证的 DSH **`0.2.1-rc.2` / `0.2.1-rc.5`**，支持使用 Web 前端的 `web` / `desktop` profile。
 Node.js 要求 `^22.19.0 || >=24.0.0`。未验证的新宿主版本不自动声明兼容。
 
 ```sh
-dsh plugin --profile web add dsh-peak-indicator@0.1.33
+dsh plugin --profile web add dsh-peak-indicator@0.1.34
 ```
 
 桌面版将 `web` 换为实际 profile 名（通常是 `desktop`），也可使用插件管理器升级。
@@ -145,7 +151,8 @@ npm pack
 
 隔离验收可指定新的 `DSH_HOME`，通过官方 CLI 安装打包文件并启动 Web profile；不需要发起收费模型请求。
 
-`dsh.compatibility.dshReleases` 仅声明已核验的 `0.2.1-rc.2`；其他版本未作兼容结论。
-本次在 macOS 上使用独立 Profile 验证官方 CLI 安装、真实 Web host 加载和合成会话的费用投影与界面。
-余额登录成功/失败等分支由自动测试覆盖；未读取生产账户，未执行收费请求，也未单独运行 Electron Desktop。
+`dsh.compatibility.dshReleases` 精确声明已核验的 `0.2.1-rc.2` 与 `0.2.1-rc.5`；其他版本未作兼容结论。
+rc.2 与 rc.5 各通过 58 项自动测试。rc.5 在 macOS 独立 Profile 通过官方 CLI 安装、真实 Web Host 加载、
+合成会话总费用投影、头部徽章、账户余额读取、悬停说明与主题切换；每轮费用及错误状态另由独立浏览器回归覆盖。
+真实 Host 的合成会话未单独断言每轮操作区；未执行收费模型请求，也未单独运行 Electron Desktop。
 该声明是作者源码兼容记录；Store 仍须审查并收录新固定 Commit，不能据此视为线上安装限制已解除。
