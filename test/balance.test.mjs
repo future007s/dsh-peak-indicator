@@ -14,17 +14,35 @@ function fixture(read) {
  const store=createBalanceStore();const stop=store.connect(remote,()=>({version:'0.2.1-rc.2',locale:'zh-CN',timezoneOffsetSeconds:28800}));
  return {store,stop,frame(status){frames.push({value:{status},accept(){}});next?.();}};
 }
-test('account balance adds CNY recharge and bonus exactly, without adding USD wallets',()=>{
- assert.deepEqual(summarizeBalance(ready([wallet('1234.199999999999999999'),wallet('999','USD')],[wallet('.800000000000000001')])),{status:'ready',total:'¥1,235.00',recharge:'¥1,234.19',bonus:'¥0.80'});
- assert.equal(summarizeBalance(ready([wallet('0E-16')],[wallet('5.0000000000000000')])).total,'¥5.00');
- assert.equal(summarizeBalance(ready([wallet('1e-20')])).total,'<¥0.01');
- assert.equal(summarizeBalance(ready([wallet('-0.12')])).total,'-¥0.12');
+test('account balance shows the funded currency and formats it exactly',()=>{
+ assert.deepEqual(summarizeBalance(ready([wallet('1234.199999999999999999','USD'),wallet('999','CNY')],[wallet('.800000000000000001','USD')])),{status:'ready',currency:'USD',total:'$1,235.00',recharge:'$1,234.19',bonus:'$0.80'});
+ assert.equal(summarizeBalance(ready([wallet('0E-16','USD')],[wallet('5.0000000000000000','USD')])).total,'$5.00');
+ assert.equal(summarizeBalance(ready([wallet('1e-20','USD')])).total,'<$0.01');
+ assert.equal(summarizeBalance(ready([wallet('-0.12','USD')])).total,'-$0.12');
 });
-test('zero, signed-out, failures and missing CNY wallets are different states',()=>{
- assert.equal(summarizeBalance(ready([wallet('0')])).total,'¥0.00');
+test('CNY wallets format with yuan when the account holds yuan only',()=>{
+ assert.deepEqual(summarizeBalance(ready([wallet('12.34','CNY')],[wallet('0.01','CNY')])),{status:'ready',currency:'CNY',total:'¥12.35',recharge:'¥12.34',bonus:'¥0.01'});
+ assert.equal(summarizeBalance(ready([wallet('8','CNY')])).total,'¥8.00');
+});
+test('auto-picks the wallet that actually holds money',()=>{
+ const cnyOnly=summarizeBalance(ready([wallet('0','USD'),wallet('500.50','CNY')],[wallet('0','USD')]));
+ assert.equal(cnyOnly.currency,'CNY');
+ assert.equal(cnyOnly.total,'¥500.50');
+ const usdOnly=summarizeBalance(ready([wallet('12.34','USD'),wallet('0','CNY')]));
+ assert.equal(usdOnly.currency,'USD');
+ assert.equal(usdOnly.total,'$12.34');
+ // Two funded wallets: USD stays the preferred display currency.
+ assert.equal(summarizeBalance(ready([wallet('12.34','USD'),wallet('7','CNY')])).currency,'USD');
+ // A funded bonus wallet is enough to pick its currency.
+ assert.equal(summarizeBalance(ready([wallet('0','USD')],[wallet('2.34','CNY')])).currency,'CNY');
+ // Both zero: keep a present currency so a real 0.00 is still shown.
+ assert.equal(summarizeBalance(ready([wallet('0','USD'),wallet('0','CNY')])).currency,'USD');
+});
+test('zero, signed-out, failures and missing wallets are different states',()=>{
+ assert.equal(summarizeBalance(ready([wallet('0','USD')])).total,'$0.00');
  assert.equal(summarizeBalance(null).status,'signed-out');
  assert.equal(summarizeBalance({status:'failed'}).status,'failed');
- assert.equal(summarizeBalance(ready([wallet('8','USD')])).status,'no-cny');
+ assert.equal(summarizeBalance(ready([],[])).status,'no-cny');
  for(const amount of ['NaN','Infinity','private-secret','1e99999'])assert.equal(summarizeBalance(ready([wallet(amount)])).status,'failed');
 });
 test('balance reads are shared and refresh is explicit, with no calls after sign-out',async()=>{
