@@ -56,3 +56,18 @@ test('actual client apply connects the optional account RPC and exposes its bala
   assert.match(html,/账户余额 ¥12.34/);
  }finally{await ctx.fiber.dispose()}
 });
+
+test('an unavailable balance badge stays clickable to reconnect the account stream',()=>{
+  const clickable={getSnapshot:()=>({status:'unavailable'}),subscribe:()=>()=>{},refresh:async()=>{},reconnect:async()=>{}};
+  const html=renderToStaticMarkup(React.createElement(client.BalanceBadge,{t,balance:clickable}));
+  assert.match(html,/账户余额：暂不可用/);
+  assert.doesNotMatch(html,/disabled/);
+  // The tooltip now tells the user the badge retries on click.
+  assert.match(html,/DSH 账户余额接口暂不可用，点击重连/);
+});
+test('loading and signed-out balances keep the badge disabled',()=>{
+  for(const status of ['loading','signed-out']){
+    const html=renderToStaticMarkup(React.createElement(client.BalanceBadge,{t,balance:store({status})}));
+    assert.match(html,/disabled/,status);
+  }
+});
